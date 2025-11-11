@@ -1,0 +1,29 @@
+version: '3.11.13'
+services:
+  chrome:
+    image: selenium/standalone-chrome:115.0
+    container_name: chrome
+    shm_size: '2gb'
+    ports:
+      - "4444:4444"
+    volumes:
+      - "./snapshots:/app/snapshots"
+  
+  app:
+    build: ./
+    container_name: job_scrap_agent
+    depends_on:
+      - chrome
+    environment:
+      - CHROME_REMOTE_URL=http://chrome:4444
+      - CHROME_BINARY_LOCATION
+      - SCRAPE_HEADLESS=1
+      - SCHEDULE_CRON_HOUR=2
+      - SCHEDULE_CRON_MINUTE=30
+    volumes:
+      - ./jobs.db:/app/jobs.db
+      - ./snapshots:/app/snapshots
+      - ./scheduler.log:/app/scheduler.log
+    ports:
+      - "7860:7860"
+    restart: unless-stopped

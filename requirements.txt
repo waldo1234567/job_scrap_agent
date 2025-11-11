@@ -1,0 +1,14 @@
+gradio
+selenium
+apscheduler
+sqlalchemy
+pandas
+requests
+bs4
+
+langchain>=1.0.3
+langchain-community>=0.4.1
+langchain-core>=1.0.3
+langchain-google-genai>=3.0.1
+python-dotenv>=1.1.1
+langsmith>=0.4.32

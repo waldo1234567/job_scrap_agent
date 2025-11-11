@@ -1,0 +1,36 @@
+name: job_scoring_flow
+nodes:
+  - id: fetch
+    type: tool
+    tool: get_unscored_jobs
+    args: {limit: $batch_size}
+    output: jobs_batch
+
+  - id: score
+    type: llm
+    impl: score_batch_llm
+    input: jobs_batch, user_profile
+    output: scores_json
+
+  - id: save
+    type: tool
+    tool: save_job_scores
+    input: scores_json
+    output: save_response
+
+  - id: check_continue
+    type: logic
+    impl: check_continue
+    input: save_response, jobs_batch
+    output: continue_flag
+
+  - id: stats
+    type: tool
+    tool: get_database_stats
+    output: db_stats
+
+  - id: top
+    type: tool
+    tool: get_top_jobs
+    args: {min_score: 70, limit: 5}
+    output: top_jobs
