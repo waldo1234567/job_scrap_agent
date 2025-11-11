@@ -1,0 +1,32 @@
+name: Weekly Database Cleanup
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install psycopg2-binary
+      
+      - name: Run database cleanup
+        env:
+          USERNAME: ${{ secrets.username }}
+          PASSWORD: ${{ secrets.password }}
+          HOST: ${{ secrets.host }}
+          PORT: ${{ secrets.port }}
+          DBNAME: ${{ secrets.dbname }}
+        run: |
+          python cleanup_jobs.py
