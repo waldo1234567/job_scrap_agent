@@ -213,7 +213,7 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
                 start_sched_btn = gr.Button("Start Scheduler")
                 stop_sched_btn = gr.Button("Stop Scheduler")
                 sched_status_btn = gr.Button("Scheduler Status")
-                oneoff_btn = gr.Button("Run Once Now (background)")
+                oneoff_btn = gr.Button("Run Scheduler Once")
                 sched_status_out = gr.Textbox(label="Scheduler status", lines=4, value=scheduler_status_ui())
             logs_area = gr.Textbox(label="Logs (latest)", value=get_logs(), lines=12)
         with gr.Column(scale=3):
