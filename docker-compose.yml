@@ -14,12 +14,14 @@ services:
     container_name: job_scrap_agent
     depends_on:
       - chrome
+    env_file:
+      - .env
     environment:
-      - CHROME_REMOTE_URL=http://chrome:4444
-      - CHROME_BINARY_LOCATION
-      - SCRAPE_HEADLESS=1
-      - SCHEDULE_CRON_HOUR=2
-      - SCHEDULE_CRON_MINUTE=30
+      - CHROME_REMOTE_URL=${CHROME_REMOTE_URL}
+      - SCRAPE_HEADLESS=${SCRAPE_HEADLESS}
+      - SCHEDULE_CRON_HOUR=${SCHEDULE_CRON_HOUR}
+      - SCHEDULE_CRON_MINUTE=${SCHEDULE_CRON_MINUTE}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     volumes:
       - ./jobs.db:/app/jobs.db
       - ./snapshots:/app/snapshots
@@ -27,3 +29,9 @@ services:
     ports:
       - "7860:7860"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:7860/health || exit 1"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
