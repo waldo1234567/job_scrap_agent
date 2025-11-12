@@ -29,4 +29,4 @@ jobs:
           PORT: ${{ secrets.port }}
           DBNAME: ${{ secrets.dbname }}
         run: |
-          python cleanup_jobs.py
+          python cleanup_job.py
