@@ -66,11 +66,11 @@ jobs:
           
       - name: Run scraper
         env:
-          USERNAME: ${{ secrets.username }}
-          PASSWORD: ${{ secrets.password }}
-          HOST: ${{ secrets.host }}
-          PORT: ${{ secrets.port }}
-          DBNAME: ${{ secrets.dbname }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          HOST: ${{ secrets.HOST }}
+          PORT: ${{ secrets.PORT }}
+          DBNAME: ${{ secrets.DBNAME }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           echo "Starting job scraper..."

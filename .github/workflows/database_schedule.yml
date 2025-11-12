@@ -24,10 +24,10 @@ jobs:
       
       - name: Run database cleanup
         env:
-          USERNAME: ${{ secrets.username }}
-          PASSWORD: ${{ secrets.password }}
-          HOST: ${{ secrets.host }}
-          PORT: ${{ secrets.port }}
-          DBNAME: ${{ secrets.dbname }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          HOST: ${{ secrets.HOST }}
+          PORT: ${{ secrets.PORT }}
+          DBNAME: ${{ secrets.DBNAME }}
         run: |
           python cleanup_job.py
