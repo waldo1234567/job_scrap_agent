@@ -19,7 +19,8 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install psycopg2-binary
+          pip install psycopg2
+          pip install dotenv
       
       - name: Run database cleanup
         env:
@@ -29,4 +30,4 @@ jobs:
           PORT: ${{ secrets.port }}
           DBNAME: ${{ secrets.dbname }}
         run: |
-          python cleanup_jobs.py
+          python cleanup_job.py
