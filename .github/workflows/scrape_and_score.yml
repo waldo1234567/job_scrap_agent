@@ -66,7 +66,7 @@ jobs:
           
       - name: Run scraper
         env:
-          USERNAME: ${{ secrets.USERNAME }}
+          USERNAME: ${{ secrets.DB_USERNAME }}
           PASSWORD: ${{ secrets.PASSWORD }}
           HOST: ${{ secrets.HOST }}
           PORT: ${{ secrets.PORT }}

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-username = os.environ.get("USERNAME")
+username = os.environ.get("DB_USERNAME")
 password = os.environ.get("PASSWORD")
 host = os.environ.get("HOST")
 port = os.environ.get("PORT")
@@ -16,7 +16,8 @@ dbname = os.environ.get("DBNAME")
 
 class JobDatabase:
     def __init__(self, database_url:Optional[str] = None):
-    
+        print(f"host={host} port={port} user={username} password={password} dbname={dbname} sslmode=require"
+)
         self.pool=SimpleConnectionPool(
             minconn=1,
             maxconn=10,
@@ -24,7 +25,8 @@ class JobDatabase:
             user=username,
             password=password,
             host=host,
-            port=port
+            port=port,
+            sslmode="require"
         )
         
         print("Connected to Supabase")
