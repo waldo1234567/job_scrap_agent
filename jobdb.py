@@ -2,8 +2,6 @@ import os
 import json
 import hashlib
 from typing import List, Dict, Optional
-from datetime import datetime
-import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2.pool import SimpleConnectionPool
 from dotenv import load_dotenv
@@ -18,11 +16,7 @@ dbname = os.environ.get("dbname")
 
 class JobDatabase:
     def __init__(self, database_url:Optional[str] = None):
-        self.database_url = database_url or os.getenv('DATABASE_URL')
-        
-        if not self.database_url:
-            raise ValueError("DATABASE_URL not provided and not in environment")
-        
+    
         self.pool=SimpleConnectionPool(
             minconn=1,
             maxconn=10,
