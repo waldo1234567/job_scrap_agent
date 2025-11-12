@@ -2,37 +2,42 @@ import gradio as gr
 import threading, time, json, sqlite3, io
 import pandas as pd
 import threading
-from typing import List, Dict
-from job_agent import JobMatcherAgent
-from datetime import datetime, timedelta
-from scheduler import SchedulerManager, run_scrape_and_score, JOB_ID, scheduler_log
-from gr_helper.render_jobs import render_job_cards_clickable, render_job_cards,get_job_by_id
-
-SCHEDULE_KEYWORDS = [
-    "AI工程師 實習", "前端工程師 實習", "後端工程師 實習", "機器學習 實習"
-]
-
-user_profile = {
-    "skills": [
-        "Frontend Development","Backend Development","AI Agents",
-        "AI Engineering","Python","JavaScript","React","Machine Learning"
-    ],
-    "preferences": {"job_type":"internship","location":["Remote","Taiwan"],"min_relevance":40}
-}
-agent = JobMatcherAgent(user_profile=user_profile)
-mgr = SchedulerManager(agent, SCHEDULE_KEYWORDS)
+from typing import List
+from jobdb import JobDatabase
+from datetime import datetime
+from gr_helper.render_jobs import render_job_cards_clickable
+from health import start_health_background
+import os
 
 _logs: List[str] = []
 _running_thread = None
 _lock = threading.Lock()
-db_path = agent.db.db_name
+
+PORT = int(os.getenv("PORT", 7860))
+GRADIO_USER = os.getenv("GRADIO_AUTH_USER", "admin")
+GRADIO_PASS = os.getenv("GRADIO_AUTH_PASS", "changeme")
+GRADIO_SERVER_PORT = os.environ.get("GRADIO_SERVER_PORT")
+username = os.environ.get("user")
+password = os.environ.get("password")
+host = os.environ.get("host")
+port = os.environ.get("port")
+dbname = os.environ.get("dbname")
+
+db = JobDatabase()
+print("Connected to database")
 
 def _append_log(msg: str):
     with _lock:
         _logs.append(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
+
+def get_logs() -> str:
+    with _lock :
+        return "\n".join(_logs[-500:]) or "No logs yet."
+    
+    
         
 def fetch_stats() -> str:
-    all_jobs = agent.db.get_all_jobs(status='new', limit=1000)
+    all_jobs =db.get_all_jobs(status='new', limit=1000)
     scored = [j for j in all_jobs if (j.get('ai_score') or 0) > 0]
     total = len(all_jobs)
     scored_count = len(scored)
@@ -48,6 +53,7 @@ def fetch_stats() -> str:
         f"- Avg score: **{avg}**\n"
         f"- High(70+): **{high}**, Medium(40-69): **{mid}**, Low(<40): **{low}**\n"
     )
+    _append_log(f"Stats refreshed: {total} jobs, {scored_count} scored")
     
     return md
 
@@ -67,16 +73,22 @@ def parse_date_posted(s: str):
     return None
                 
                 
-def top_jobs_table(min_score: int = 70, limit: int = 10, sort_by: str = "score_desc"):
-    conn = sqlite3.connect(agent.db.db_name)
-    conn.row_factory = sqlite3.Row
+def top_jobs_table(min_score: int = 70, limit: int = 10, sort_by: str = "score_desc", source_filter: str = "All"):
+    conn = db.get_connection()
+    query = """
+            SELECT id, title, company, location, ai_score, ai_analysis, url, date_posted, source 
+            FROM jobs 
+            WHERE ai_score >= %s
+        """
+    params = [min_score]
+        
+    if source_filter != "All":
+        query += " AND source = %s"
+        params.append(source_filter) # type: ignore
+        
+    df = pd.read_sql_query(query, conn, params=params) # type: ignore
+    db.return_connection(conn)
     
-    df = pd.read_sql_query(
-        "SELECT id, title, company, location, ai_score, ai_analysis, url, date_posted FROM jobs WHERE ai_score >= ?",
-        conn, params=(min_score,)
-    )
-    
-    conn.close()
     if df.empty:
         return pd.DataFrame([{"message":"No jobs match the criteria"}])
     
@@ -101,10 +113,12 @@ def top_jobs_table(min_score: int = 70, limit: int = 10, sort_by: str = "score_d
     out =df.head(int(limit)).copy()
     out = out[['id','title','company','location','ai_score','ai_analysis','url','date_posted']]
     
+    
+    _append_log(f"Displayed {len(out)} jobs (min_score={min_score}, sort={sort_by})")
     return out
 
 def export_csv():
-    conn = sqlite3.connect(agent.db.db_name)
+    conn = db.get_connection()
     df = pd.read_sql_query("SELECT * FROM jobs", conn)
     conn.close()
     buffer = io.StringIO()
@@ -112,36 +126,16 @@ def export_csv():
     buffer.seek(0)
     return("all_jobs.csv", buffer.getvalue())
 
-
-def _process_run(batch_size: int, max_batches: int):
-    try:
-        _append_log(f"Started run : batch_size={batch_size}, max_batches={max_batches}")
-        total = agent.process_all_jobs(batch_size, max_batches)
-        _append_log(f"Finished run: scored {total} jobs")
-    except Exception as e:
-        _append_log(f"Run failed: {e}")
-        
-def run_now(batch_size: int = 6 , max_batches:int = 20):
-    global _running_thread
-    if _running_thread and _running_thread.is_alive():
-        return "Already Running"
-
-    _append_log("Scheduling run (background)...")
-    _running_thread = threading.Thread(target=_process_run, args=(batch_size, max_batches), daemon=True)
-    _running_thread.start()
-    return "Started"
-
-def get_logs() -> str:
-    with _lock :
-        return "\n".join(_logs[-500:]) or "No logs yet."
+    
     
 def show_job_detail(job_id:int):
-    conn = sqlite3.connect(agent.db.db_name)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
-    row = cur.fetchone()
-    conn.close()
+    conn = db.get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM jobs WHERE id = %s", (job_id,))
+    row = cursor.fetchone()
+        
+    db.return_connection(conn)
     if not row:
         return f"Job {job_id} not found"
 
@@ -171,32 +165,6 @@ def show_job_detail(job_id:int):
     }, ensure_ascii=False, indent=2)
     return pretty
 
-def start_scheduler_ui():
-    started = mgr.start()
-    if started:
-        return f"Scheduler started. Next run: {mgr._job.next_run_time}" # type: ignore
-    else:
-        return "Scheduler already running."
-
-def stop_scheduler_ui():
-    stopped = mgr.stop()
-    return "Scheduler stopped." if stopped else "Scheduler not running."
-
-def scheduler_status_ui():
-    st = mgr.status()
-    return json.dumps(st, indent=2, default=str)
-
-def schedule_one_off_now_ui(headless:bool = True):
-    def _run():
-        scheduler_log("One-off run (UI) started")
-        res = run_scrape_and_score(keywords=SCHEDULE_KEYWORDS, user_profile=agent.user_profile, headless=headless)
-        scheduler_log(f"One-off run (UI) finished: {res}")
-
-    t = threading.Thread(target=_run, daemon=True)
-    t.start()
-    return "One-off run scheduled (background). Check logs for progress."
-
-
 with gr.Blocks(title="Job Info Dashboard") as demo:
     gr.Markdown("# Job Matcher — Dashboard")
     with gr.Row():
@@ -208,13 +176,7 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
             with gr.Row():
                 run_btn = gr.Button("Run Now (background)")
                 refresh_btn = gr.Button("Refresh stats")
-                export_btn = gr.Button("Export CSV")
-            with gr.Row():
-                start_sched_btn = gr.Button("Start Scheduler")
-                stop_sched_btn = gr.Button("Stop Scheduler")
-                sched_status_btn = gr.Button("Scheduler Status")
-                oneoff_btn = gr.Button("Run Scheduler Once")
-                sched_status_out = gr.Textbox(label="Scheduler status", lines=4, value=scheduler_status_ui())
+                export_btn = gr.Button("Export CSV") 
             logs_area = gr.Textbox(label="Logs (latest)", value=get_logs(), lines=12)
         with gr.Column(scale=3):
             gr.Markdown("### Top Matches")
@@ -226,7 +188,7 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
                 ("Newest", "newest"),
                 ("Oldest", "oldest")
             ], value="score_desc", label="Sort by")
-            top_cards = gr.HTML(render_job_cards_clickable(db_path, 70, 100, int(top_limit.value))) # type: ignore
+            top_cards = gr.HTML(render_job_cards_clickable(70, 100, int(top_limit.value))) # type: ignore
             with gr.Row():
                 detail_id = gr.Number(value=0, precision=0, label="Job ID (show details)")
                 show_btn = gr.Button("Show Job")
@@ -235,24 +197,19 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
     def refresh_top_table(min_score, limit, sort_by):
         return top_jobs_table(min_score, limit, sort_by)
                 
-    run_btn.click(fn=run_now, inputs=[batch_slider, max_batches], outputs=logs_area)
-    refresh_btn.click(fn=lambda: (fetch_stats(), get_logs(), render_job_cards_clickable(db_path, int(top_min.value), 100, int(top_limit.value))), inputs=None, outputs=[stats_md, logs_area, top_cards])
+    refresh_btn.click(fn=lambda: (fetch_stats(), get_logs(), render_job_cards_clickable( int(top_min.value), 100, int(top_limit.value))), inputs=None, outputs=[stats_md, logs_area, top_cards])
     export_btn.click(fn=export_csv, inputs=None, outputs=None)
     
-    top_min.change(fn=lambda s, l, so: render_job_cards_clickable(db_path, int(s), 100, int(l)), inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
-    top_limit.change(fn=lambda s, l, so: render_job_cards_clickable(db_path, int(s), 100, int(l)), inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
-    sort_dropdown.change(fn=lambda s, l, so: render_job_cards_clickable(db_path, int(top_min.value), 100, int(top_limit.value)), inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
+    top_min.change(fn=lambda s, l, so: render_job_cards_clickable(int(s), 100, int(l)), inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
+    top_limit.change(fn=lambda s, l, so: render_job_cards_clickable( int(s), 100, int(l)), inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
+    sort_dropdown.change(fn=lambda s, l, so: render_job_cards_clickable( int(top_min.value), 100, int(top_limit.value)), inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
     
-    start_sched_btn.click(fn=start_scheduler_ui, inputs=None, outputs=sched_status_out)
-    stop_sched_btn.click(fn=stop_scheduler_ui, inputs=None, outputs=sched_status_out)
-    sched_status_btn.click(fn=scheduler_status_ui, inputs=None, outputs=sched_status_out)
-    oneoff_btn.click(fn=schedule_one_off_now_ui, inputs=None, outputs=logs_area)
     show_btn.click(fn=show_job_detail, inputs=detail_id, outputs=detail_out)
 
 def refresh_cards(min_score, limit, sort_by):
-    return render_job_cards_clickable(db_path, int(min_score), 100, int(limit))
-
+    return render_job_cards_clickable( int(min_score), 100, int(limit))
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False)
+    start_health_background()
+    demo.launch(server_name="127.0.0.1", server_port=7860, auth=(GRADIO_USER, GRADIO_PASS))

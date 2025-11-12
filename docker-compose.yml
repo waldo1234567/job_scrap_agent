@@ -30,7 +30,7 @@ services:
       - "7860:7860"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:7860/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:5001/health || exit 1"]
       interval: 1m30s
       timeout: 30s
       retries: 5

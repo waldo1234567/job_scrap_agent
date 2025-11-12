@@ -1,35 +1,49 @@
 import sqlite3
 import json
 from typing import List
+from jobdb import JobDatabase
 
-def _fetch_jobs(db_path: str, min_score: int, max_score: int, limit: int):
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+db = JobDatabase()
+
+def _fetch_jobs( min_score: int, max_score: int, limit: int):
+    conn = db.get_connection()
     cur = conn.cursor()
-    cur.execute("""
-        SELECT id, title, company, location, ai_score, ai_analysis, url, date_posted
+    query = """
+        SELECT id, title, company, location, ai_score, ai_analysis, url, date_posted, source
         FROM jobs
-        WHERE ai_score BETWEEN ? AND ?
-        ORDER BY ai_score DESC, created_at DESC
-        LIMIT ?
-    """, (min_score, max_score, int(limit)))
-    rows = [dict(r) for r in cur.fetchall()]
-    conn.close()
+        WHERE ai_score BETWEEN %s AND %s
+    """
+    params = [min_score, max_score]
+    
+    query += " ORDER BY ai_score DESC, created_at DESC LIMIT %s"
+    params.append(int(limit))
+    cur.execute(query, params)
+  
+    columns = [desc[0] for desc in cur.description]
+    rows = [dict(zip(columns, row)) for row in cur.fetchall()]
+    
+    db.return_connection(conn)
     return rows
 
-def get_job_by_id(db_path: str, job_id: int):
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+def get_job_by_id( job_id: int):
+    conn = db.get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM jobs WHERE id = ?", (int(job_id),))
+    
+    cur.execute("SELECT * FROM jobs WHERE id = %s", (int(job_id),))
     row = cur.fetchone()
-    conn.close()
+    
     if not row:
+        db.return_connection(conn)
         return {}
-    return dict(row)
+ 
+    columns = [desc[0] for desc in cur.description]
+    job_dict = dict(zip(columns, row))
+    
+    db.return_connection(conn)
+    return job_dict
 
-def render_job_cards_clickable(db_path: str, min_score: int, max_score: int, limit: int = 8) -> str:
-    rows = _fetch_jobs(db_path, min_score, max_score, limit)
+def render_job_cards_clickable( min_score: int, max_score: int, limit: int = 8) -> str:
+    rows = _fetch_jobs(min_score, max_score, limit)
     if not rows:
         return "<div>No jobs found for this range.</div>"
     
@@ -144,8 +158,8 @@ def render_job_cards_clickable(db_path: str, min_score: int, max_score: int, lim
 
     return css + "\n".join(cards_html) + js
 
-def render_job_cards(db_path: str, min_score: int, max_score: int, limit: int = 8) -> str:
-    rows = _fetch_jobs(db_path, min_score, max_score, limit)
+def render_job_cards( min_score: int, max_score: int, limit: int = 8) -> str:
+    rows = _fetch_jobs( min_score, max_score, limit)
     if not rows:
         return "<div>No jobs found for this range.</div>"
 

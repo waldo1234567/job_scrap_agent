@@ -7,10 +7,10 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
 import json
 from datetime import datetime
-from selenium.webdriver.chrome.service import Service
 import traceback
 import os
-
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 
 
 RECYCLER_SELECTOR = ("#app > div > div.container.jb-container.container-sidebar--rwd.main.pt-1.pt-md-5"
@@ -137,45 +137,32 @@ class Job104Scraper:
             chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-        chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        chrome_options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option("useAutomationExtension", False)
         
-        if not remote:
-            chrome_path = os.getenv("CHROME_BINARY_LOCATION") or r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-            if os.path.exists(chrome_path):
-                chrome_options.binary_location = chrome_path
+        if os.path.exists('/usr/bin/google-chrome'):
+            chrome_options.binary_location = '/usr/bin/google-chrome'
         
         try:
-            if remote:
-                remote_url = remote.rstrip("/")
-                try:
-                    self.driver = webdriver.Remote(command_executor=remote_url + "/wd/hub", options=chrome_options)
-                except TypeError:
-                    # Older remote implementation might not accept 'options' param; fall back to capabilities
-                    caps = chrome_options.to_capabilities()
-                    self.driver = webdriver.Remote(command_executor=remote_url + "/wd/hub", desired_capabilities=caps) # type: ignore
-            else:
-                self.driver = webdriver.Chrome(options=chrome_options)
-            self.wait = WebDriverWait(self.driver, 10)
-            try:
-                caps = self.driver.capabilities
-                browser_name = caps.get("browserName") or caps.get("browser", "chrome")
-                browser_version = caps.get("browserVersion") or caps.get("version", "unknown")
-                print(f"Started {browser_name} v{browser_version}")
-            except Exception:
-                pass
+            service = Service('/usr/local/bin/chromedriver')
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            self.wait = WebDriverWait(self.driver, 15)
+            
+            print("Successfully started Chrome in GitHub Actions")
+            
         except Exception as e:
-            print("Selenium Manager start failed:", e)
-            traceback.print_exc()
-        try:
-            caps = self.driver.capabilities
-            browser_name = caps.get("browserName") or caps.get("browser") or "chrome"
-            browser_version = caps.get("browserVersion") or caps.get("version") or caps.get("browser_version") or "unknown"
-            print(f"Started {browser_name} v{browser_version}")
-        except Exception:
-            pass
+            print(f"Chrome driver start failed: {e}")
+            try:
+                self.driver = webdriver.Chrome(options=chrome_options)
+                self.wait = WebDriverWait(self.driver, 15)
+                print("Successfully started Chrome with fallback method")
+            except Exception as e2:
+                print(f"Fallback also failed: {e2}")
+                raise
        
         
     def build_search_url(self, keywords, location="台灣", job_type="實習"):
@@ -194,7 +181,7 @@ class Job104Scraper:
                 print("Driver.get failed:", e)
                 continue
 
-            time.sleep(1.0)  # let initial JS kick off
+            time.sleep(1.0) 
 
             try:
                 for sel in ["button#onetrust-accept-btn-handler", "button.cookie-accept", "button[aria-label*='close']"]:
@@ -336,8 +323,7 @@ class Job104Scraper:
                 break
         if not description:
             description = ""
-
-        # 6) Date posted (exact -> fallback)
+            
         date_posted = try_select_text("div.col-auto.date > div") or try_select_text(".col-auto.date > div") or try_select_text(".date")
         if not date_posted:
             date_posted = "Unknown"
@@ -361,7 +347,8 @@ class Job104Scraper:
         print(f"Saved {len(jobs)} jobs to {filename}")
 
     def close(self):
-        self.driver.quit()
+        if hasattr(self, 'driver'):
+            self.driver.quit()
         
 if __name__ == "__main__":
     scraper = Job104Scraper(headless=False)

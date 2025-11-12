@@ -1,165 +1,151 @@
-import sqlite3
 import json
-from datetime import datetime
-import hashlib
-from remote_ok_scrap import RemoteOkScraper
+from jobdb import JobDatabase
 from yilingsi_scraper import Job104Scraper
 
-class JobDatabase:
-    def __init__(self, db_name="jobs.db"):
-        self.db_name=db_name
-        self.setup_database()
+# class JobDatabase:
+#     def __init__(self, db_name="jobs.db"):
+#         self.db_name=db_name
+#         self.setup_database()
         
-    def setup_database(self):
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
+#     def setup_database(self):
+#         conn = sqlite3.connect(self.db_name)
+#         cursor = conn.cursor()
         
-        cursor.execute(
-            '''
-                CREATE TABLE IF NOT EXISTS jobs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                job_hash TEXT UNIQUE,
-                title TEXT NOT NULL,
-                company TEXT,
-                location TEXT,
-                url TEXT,
-                salary TEXT,
-                description TEXT,
-                date_posted TEXT,
-                tags TEXT,
-                source TEXT,
-                search_keyword TEXT,
-                scraped_at TEXT,
-                status TEXT DEFAULT 'new',
-                ai_score INTEGER DEFAULT 0,
-                ai_analysis TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            '''
-        )
-        conn.commit()
-        conn.close()
-        print("DB Initialized")
+#         cursor.execute(
+#             '''
+#                 CREATE TABLE IF NOT EXISTS jobs (
+#                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+#                 job_hash TEXT UNIQUE,
+#                 title TEXT NOT NULL,
+#                 company TEXT,
+#                 location TEXT,
+#                 url TEXT,
+#                 salary TEXT,
+#                 description TEXT,
+#                 date_posted TEXT,
+#                 tags TEXT,
+#                 source TEXT,
+#                 search_keyword TEXT,
+#                 scraped_at TEXT,
+#                 status TEXT DEFAULT 'new',
+#                 ai_score INTEGER DEFAULT 0,
+#                 ai_analysis TEXT,
+#                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+#                 )
+#             '''
+#         )
+#         conn.commit()
+#         conn.close()
+#         print("DB Initialized")
     
-    def generate_job_hash(self, job):
-        unique_string = f"{job['title']}{job['company']}{job['url']}"
-        return hashlib.md5(unique_string.encode()).hexdigest()
+#     def generate_job_hash(self, job):
+#         unique_string = f"{job['title']}{job['company']}{job['url']}"
+#         return hashlib.md5(unique_string.encode()).hexdigest()
     
-    def save_jobs(self, jobs):
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
+#     def save_jobs(self, jobs):
+#         conn = sqlite3.connect(self.db_name)
+#         cursor = conn.cursor()
         
-        new_jobs = 0
-        duplicate_jobs = 0
+#         new_jobs = 0
+#         duplicate_jobs = 0
         
-        for job in jobs:
-            job_hash = self.generate_job_hash(job)
+#         for job in jobs:
+#             job_hash = self.generate_job_hash(job)
             
-            try:
-                cursor.execute(
-                    '''
-                        INSERT INTO jobs (
-                        job_hash, title, company, location, url, 
-                        salary, description, date_posted, tags, 
-                        source, search_keyword, scraped_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''',(
-                        job_hash,
-                        job['title'],
-                        job.get('company', 'Unknown'),
-                        job.get('location', 'Remote'),
-                        job['url'],
-                        job.get('salary', 'Not specified'),
-                        job.get('description', ''),
-                        job.get('date_posted', 'Unknown'),
-                        json.dumps(job.get('tags', [])),
-                        job['source'],
-                        job.get('search_keyword', ''),
-                        job['scraped_at']
-                    )
-                )
-                new_jobs += 1
-            except sqlite3.IntegrityError:
-                duplicate_jobs += 1
-                continue
+#             try:
+#                 cursor.execute(
+#                     '''
+#                         INSERT INTO jobs (
+#                         job_hash, title, company, location, url, 
+#                         salary, description, date_posted, tags, 
+#                         source, search_keyword, scraped_at
+#                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+#                     ''',(
+#                         job_hash,
+#                         job['title'],
+#                         job.get('company', 'Unknown'),
+#                         job.get('location', 'Remote'),
+#                         job['url'],
+#                         job.get('salary', 'Not specified'),
+#                         job.get('description', ''),
+#                         job.get('date_posted', 'Unknown'),
+#                         json.dumps(job.get('tags', [])),
+#                         job['source'],
+#                         job.get('search_keyword', ''),
+#                         job['scraped_at']
+#                     )
+#                 )
+#                 new_jobs += 1
+#             except sqlite3.IntegrityError:
+#                 duplicate_jobs += 1
+#                 continue
             
-        conn.commit()
-        conn.close()
+#         conn.commit()
+#         conn.close()
         
-        print(f"Saved {new_jobs} new jobs, skipped {duplicate_jobs} duplicates")
-        return new_jobs, duplicate_jobs
+#         print(f"Saved {new_jobs} new jobs, skipped {duplicate_jobs} duplicates")
+#         return new_jobs, duplicate_jobs
     
-    def get_all_jobs(self, status='new', limit = 100):
-        conn = sqlite3.connect(self.db_name)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+#     def get_all_jobs(self, status='new', limit = 100):
+#         conn = sqlite3.connect(self.db_name)
+#         conn.row_factory = sqlite3.Row
+#         cursor = conn.cursor()
         
-        cursor.execute('''
-           SELECT * FROM jobs 
-            WHERE status = ? 
-            ORDER BY created_at DESC 
-            LIMIT ?            
-        ''',(status, limit))
+#         cursor.execute('''
+#            SELECT * FROM jobs 
+#             WHERE status = ? 
+#             ORDER BY created_at DESC 
+#             LIMIT ?            
+#         ''',(status, limit))
         
-        jobs = [dict(row) for row in cursor.fetchall()]
-        conn.close()
+#         jobs = [dict(row) for row in cursor.fetchall()]
+#         conn.close()
         
-        return jobs
+#         return jobs
     
-    def update_job_status(self, job_id, status):
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
+#     def update_job_status(self, job_id, status):
+#         conn = sqlite3.connect(self.db_name)
+#         cursor = conn.cursor()
         
-        cursor.execute('''
-            UPDATE jobs SET status = ? WHERE id = ?
-        ''', (status, job_id))
+#         cursor.execute('''
+#             UPDATE jobs SET status = ? WHERE id = ?
+#         ''', (status, job_id))
         
-        conn.commit()
-        conn.close()
+#         conn.commit()
+#         conn.close()
     
-    def get_stats(self):
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
+#     def get_stats(self):
+#         conn = sqlite3.connect(self.db_name)
+#         cursor = conn.cursor()
         
-        cursor.execute('SELECT COUNT(*) FROM jobs')
-        total = cursor.fetchone()[0]
+#         cursor.execute('SELECT COUNT(*) FROM jobs')
+#         total = cursor.fetchone()[0]
         
-        cursor.execute('SELECT COUNT(*) FROM jobs WHERE status = "new"')
-        new = cursor.fetchone()[0]
+#         cursor.execute('SELECT COUNT(*) FROM jobs WHERE status = "new"')
+#         new = cursor.fetchone()[0]
         
-        cursor.execute('SELECT COUNT(*) FROM jobs WHERE status = "interested"')
-        interested = cursor.fetchone()[0]
+#         cursor.execute('SELECT COUNT(*) FROM jobs WHERE status = "interested"')
+#         interested = cursor.fetchone()[0]
         
-        cursor.execute('SELECT COUNT(*) FROM jobs WHERE status = "applied"')
-        applied = cursor.fetchone()[0]
+#         cursor.execute('SELECT COUNT(*) FROM jobs WHERE status = "applied"')
+#         applied = cursor.fetchone()[0]
         
-        conn.close()
+#         conn.close()
         
-        return {
-            'total': total,
-            'new': new,
-            'interested': interested,
-            'applied': applied
-        }
+#         return {
+#             'total': total,
+#             'new': new,
+#             'interested': interested,
+#             'applied': applied
+#         }
 
 class UnifiedJobScrapper:
     def __init__(self):
         self.db = JobDatabase()
-        self.remoteok = RemoteOkScraper()
         self.job104 = Job104Scraper()
         
-    def scrape_all(self, include_104=True, include_remoteok = True):
+    def scrape_all(self, include_104=True):
         all_jobs = []
-        
-        if include_remoteok:
-            print("\n" + "="*50)
-            print("Scraping RemoteOK...")
-            print("="*50)
-            
-            remoteok_keywords = ['AI', 'Frontend', 'Backend', 'Machine Learning', 
-                                'Python', 'React', 'Engineer', 'Intern']
-            remoteok_jobs = self.remoteok.scrape_jobs(remoteok_keywords)
-            all_jobs.extend(remoteok_jobs)
         
         if include_104:
             print("\n" + "="*50)
@@ -217,7 +203,7 @@ if __name__ == "__main__":
     
     scraper = UnifiedJobScrapper()
     
-    jobs = scraper.scrape_all(include_104=True, include_remoteok=True)
+    jobs = scraper.scrape_all(include_104=True)
     
     scraper.export_to_json()
     
