@@ -8,11 +8,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-username = os.environ.get("user")
-password = os.environ.get("password")
-host = os.environ.get("host")
-port = os.environ.get("port")
-dbname = os.environ.get("dbname")
+username = os.environ.get("USERNAME")
+password = os.environ.get("PASSWORD")
+host = os.environ.get("HOST")
+port = os.environ.get("PORT")
+dbname = os.environ.get("DBNAME")
 
 class JobDatabase:
     def __init__(self, database_url:Optional[str] = None):
