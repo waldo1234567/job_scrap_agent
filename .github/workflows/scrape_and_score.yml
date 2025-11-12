@@ -78,23 +78,13 @@ jobs:
 
       - name: Run AI scoring
         env:
-          USERNAME: ${{ secrets.username }}
-          PASSWORD: ${{ secrets.password }}
-          HOST: ${{ secrets.host }}
-          PORT: ${{ secrets.port }}
-          DBNAME: ${{ secrets.dbname }}
+          USERNAME: ${{ secrets.DB_USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          HOST: ${{ secrets.HOST }}
+          PORT: ${{ secrets.PORT }}
+          DBNAME: ${{ secrets.DBNAME }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           echo "Starting AI job scorer..."
           python run_scorer.py
 
-      - name: Show statistics
-        env:
-          USERNAME: ${{ secrets.username }}
-          PASSWORD: ${{ secrets.password }}
-          HOST: ${{ secrets.host }}
-          PORT: ${{ secrets.port }}
-          DBNAME: ${{ secrets.dbname }}
-        run: |
-          echo "Job statistics:"
-          python show_stats.py
