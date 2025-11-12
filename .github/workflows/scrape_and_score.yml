@@ -66,11 +66,11 @@ jobs:
           
       - name: Run scraper
         env:
-          username: ${{ secrets.DB_USERNAME }}
-          password: ${{ secrets.PASSWORD }}
-          host: ${{ secrets.HOST }}
-          port: ${{ secrets.PORT }}
-          dbname: ${{ secrets.DBNAME }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}    # Match your code
+          PASSWORD: ${{ secrets.PASSWORD }}
+          HOST: ${{ secrets.HOST }}
+          PORT: ${{ secrets.PORT }}
+          DBNAME: ${{ secrets.DBNAME }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           echo "Starting job scraper..."
@@ -78,11 +78,11 @@ jobs:
 
       - name: Run AI scoring
         env:
-          username: ${{ secrets.DB_USERNAME }}
-          password: ${{ secrets.PASSWORD }}
-          host: ${{ secrets.HOST }}
-          port: ${{ secrets.PORT }}
-          dbname: ${{ secrets.DBNAME }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}  
+          PASSWORD: ${{ secrets.PASSWORD }}
+          HOST: ${{ secrets.HOST }}
+          PORT: ${{ secrets.PORT }}
+          DBNAME: ${{ secrets.DBNAME }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           echo "Starting AI job scorer..."
