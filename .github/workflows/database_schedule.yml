@@ -19,7 +19,8 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install psycopg2-binary
+          pip install psycopg2
+          pip install dotenv
       
       - name: Run database cleanup
         env:
