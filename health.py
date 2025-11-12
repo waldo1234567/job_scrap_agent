@@ -63,7 +63,7 @@ def ingest_jobs():
 
 
 def _run_health_server():
-    app.run(host="127.0.0.1", port=5001, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=5001, debug=False, threaded=True)
     
 def start_health_background():
     t = threading.Thread(target=_run_health_server, daemon=True)
