@@ -2,7 +2,7 @@ name: Daily Job Scraper & Scorer
 
 on:
   schedule:
-    - cron: '0 9 * * *'
+    - cron: '0 1 * * *'
 
   workflow_dispatch:
     inputs:
@@ -32,21 +32,39 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
             
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
 
-      - name: Set up Chrome
-        uses: browser-actions/setup-chrome@latest
-        with:
-          chrome-version: stable
+      - name: Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
 
       - name: Install ChromeDriver
         run: |
-          pip install webdriver-manager
+          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
+          CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d'.' -f1)
+          echo "Chrome version: $CHROME_VERSION"
+          echo "Chrome major version: $CHROME_MAJOR_VERSION"
+
+          wget -q -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/$CHROME_VERSION/linux64/chromedriver-linux64.zip"
+          sudo unzip -o /tmp/chromedriver.zip -d /tmp/
+          sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
+
+      - name: Verify Chrome and ChromeDriver
+        run: |
+          google-chrome --version
+          chromedriver --version
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
           
-      - name: Run scraper (RemoteOK + 104)
+      - name: Run scraper
         env:
           USERNAME: ${{ secrets.username }}
           PASSWORD: ${{ secrets.password }}
