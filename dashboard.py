@@ -266,28 +266,6 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
 demo.queue(default_concurrency_limit=2, max_size=50)
 app = demo.app
 
-@app.api_route("/health", methods=["GET", "HEAD"])
-async def health(request: Request):
-    details = {"env": {"DB_HOST": os.getenv("HOST"), "DB_PORT": os.getenv("DB_PORT"), "DBNAME": os.getenv("DBNAME")}}
-
-    global db_client
-    if db_client is None:
-        try:
-            db_client =get_db_client()
-        except Exception as e:
-            details["database"] = {"ok": False, "error": "db_init_failed", "msg": str(e)} # type: ignore
-            return JSONResponse({"ok": False, "details": details}, status_code=500)
-
-    try:
-        ok, db_details = await run_in_threadpool(db_client.check) # type: ignore
-        details["database"] = db_details
-        status = 200 if ok else 500
-        return JSONResponse({"ok": ok, "details": details}, status_code=status)
-    except Exception as e:
-        details["database"] = {"ok": False, "error": "check_failed", "msg": str(e), "trace": traceback.format_exc()} # type: ignore
-        return JSONResponse({"ok": False, "details": details}, status_code=500)
-        
-
 
 @app.route("/ingest/jobs", methods=["POST"])
 def ingest_jobs():
