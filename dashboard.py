@@ -122,7 +122,7 @@ def top_jobs_table(min_score: int = 70, limit: int = 10, sort_by: str = "score_d
 
 def export_csv():
     conn = db.get_connection()
-    df = pd.read_sql_query("SELECT * FROM jobs", conn)
+    df = pd.read_sql_query("SELECT * FROM jobs", conn) # type: ignore
     conn.close()
     buffer = io.StringIO()
     df.to_csv(buffer, index=False)
@@ -213,24 +213,16 @@ def refresh_cards(min_score, limit, sort_by):
     return render_job_cards_clickable( int(min_score), 100, int(limit))
 
 app = demo.app
-db = JobDatabase()
+db_client = JobDatabase()
 
-@app.route("/health")
+@app.get("/health")
 async def health(request):
-    details = {
-        "env": {
-            "DB_HOST": os.getenv("HOST"),
-            "DB_PORT": os.getenv("DB_PORT"),
-            "DBNAME": os.getenv("DBNAME"),
-        }
-    }
-   
+    details = {"env": {"DB_HOST": os.getenv("HOST"), "DB_PORT": os.getenv("DB_PORT"), "DBNAME": os.getenv("DBNAME")}}
     try:
-        db_ok, db_details = await run_in_threadpool(db.get_stats)
+        ok, db_details = await run_in_threadpool(db_client.check)
         details["database"] = db_details
-        status = 200 if db_ok else 500
-        return JSONResponse({"ok": db_ok, "details": details}, status_code=status)
-    
+        status = 200 if ok else 500
+        return JSONResponse({"ok": ok, "details": details}, status_code=status)
     except Exception as e:
         details["error"] = str(e) # type: ignore
         return JSONResponse({"ok": False, "details": details}, status_code=500)

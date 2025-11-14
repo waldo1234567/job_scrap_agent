@@ -1,7 +1,8 @@
 import os
 import json
 import hashlib
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
+import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2.pool import SimpleConnectionPool
 from dotenv import load_dotenv
@@ -16,8 +17,6 @@ dbname = os.environ.get("DBNAME")
 
 class JobDatabase:
     def __init__(self, database_url:Optional[str] = None):
-        print(f"host={host} port={port} user={username} password={password} dbname={dbname} sslmode=require"
-)
         self.pool=SimpleConnectionPool(
             minconn=1,
             maxconn=10,
@@ -33,10 +32,34 @@ class JobDatabase:
         print("Connected to Supabase")
     
     def get_connection(self):
-        return self.pool.getconn()
+        if self.pool:
+            return self.pool.getconn()
+        return psycopg2.connect(
+            dbname=dbname,
+            user=username,
+            password=password,
+            host=host,
+            port=port,
+            connect_timeout=3,
+            sslmode="require"
+        )
     
     def return_connection(self,conn):
-        self.pool.putconn(conn)
+        if not conn:
+            return
+        if self.pool:
+            try:
+                self.pool.putconn(conn)
+            except Exception:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        else:
+            try:
+                conn.close()
+            except Exception:
+                pass
     
     def generate_job_hash(self, job:Dict):
         unique_string = f"{job['title']}{job['company']}{job['url']}"
@@ -158,16 +181,16 @@ class JobDatabase:
         cursor = conn.cursor()
         
         cursor.execute('SELECT COUNT(*) FROM jobs')
-        total = cursor.fetchone()[0]
+        total = cursor.fetchone()[0] # type: ignore
         
         cursor.execute('SELECT COUNT(*) FROM jobs WHERE status = %s', ('new',))
-        new = cursor.fetchone()[0]
+        new = cursor.fetchone()[0] # type: ignore
         
         cursor.execute('SELECT COUNT(*) FROM jobs WHERE status = %s', ('interested',))
-        interested = cursor.fetchone()[0]
+        interested = cursor.fetchone()[0] # type: ignore
         
         cursor.execute('SELECT COUNT(*) FROM jobs WHERE status = %s', ('applied',))
-        applied = cursor.fetchone()[0]
+        applied = cursor.fetchone()[0] # type: ignore
         
         self.return_connection(conn)
         
@@ -178,9 +201,24 @@ class JobDatabase:
             'applied': applied
         }
     
+    def check(self) -> Tuple[bool, Dict]:
+        try:
+            conn = self.get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            cur.fetchone()
+            cur.close()
+            self.pool.putconn(conn)
+            return True, {"db": "ok"}
+        except Exception as e:
+            return False, {"db_error": str(e)}
+            
     def close(self):
-        """Close all connections in pool"""
-        self.pool.closeall()
+        if getattr(self, "pool", None):
+            try:
+                self.pool.closeall()
+            except Exception as e:
+                print("Error closing pool:", e)
         
 def get_database(database_url: Optional[str] = None):
     db_url = database_url or os.getenv('DATABASE_URL')

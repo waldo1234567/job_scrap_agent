@@ -19,7 +19,7 @@ def _fetch_jobs( min_score: int, max_score: int, limit: int):
     params.append(int(limit))
     cur.execute(query, params)
   
-    columns = [desc[0] for desc in cur.description]
+    columns = [desc[0] for desc in cur.description] # type: ignore
     rows = [dict(zip(columns, row)) for row in cur.fetchall()]
     
     db.return_connection(conn)
@@ -36,7 +36,7 @@ def get_job_by_id( job_id: int):
         db.return_connection(conn)
         return {}
  
-    columns = [desc[0] for desc in cur.description]
+    columns = [desc[0] for desc in cur.description] # type: ignore
     job_dict = dict(zip(columns, row))
     
     db.return_connection(conn)
