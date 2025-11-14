@@ -1,5 +1,5 @@
 import gradio as gr
-import threading, time, json, sqlite3, io
+import threading, time, json, io
 import pandas as pd
 import threading
 from typing import List
@@ -8,6 +8,7 @@ from datetime import datetime
 from gr_helper.render_jobs import render_job_cards_clickable
 import os
 from flask import request, jsonify
+import requests
 
 _logs: List[str] = []
 _lock = threading.Lock()
@@ -213,27 +214,39 @@ def health():
     details={}
     
     try:
-        conn = sqlite3.connect('/jobs.db',timeout=2)
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*)")
-        details['jobs'] = cur.fetchone()[0]
-        conn.close()
+        db = JobDatabase()
+        stats = db.get_stats()
+        details['database'] = {
+            'total_jobs': stats.get('total', 0),
+            'new_jobs': stats.get('new', 0),
+            'interested': stats.get('interested', 0),
+            'applied': stats.get('applied', 0)
+        }
+        db.close()
+        print("Database health check passed")
     
-    except Exception as e:
-        ok =False
-        details['db_error'] = str(e)
-    
-    chrome = os.getenv("CHROME_REMOTE_URL")
-    
-    try:
-        r = requests.get(chrome.rstrip('/') + "/status", timeout=3) # type: ignore
-        details['chrome_status'] = r.status_code
-        if r.status_code != 200:
-            ok = False
     except Exception as e:
         ok = False
-        details['chrome_error'] = str(e)
-    return jsonify({"ok": ok, "details": details})
+        details['db_error'] = str(e)
+        print(f"Database health check failed: {e}")
+    
+    chrome = os.getenv("CHROME_REMOTE_URL")
+    if chrome:
+        try:
+            r = requests.get(chrome.rstrip('/') + "/status", timeout=3)
+            details['chrome_status'] = r.status_code
+            if r.status_code != 200:
+                ok = False
+            print("✅ Chrome health check passed")
+        except Exception as e:
+            ok = False
+            details['chrome_error'] = str(e)
+            print(f"Chrome health check failed: {e}")
+    else:
+        details['chrome'] = "Not configured"
+        print("Chrome not configured, skipping check")
+        
+    return jsonify({"ok": ok, "details": details}),200
 
 
 @app.route("/ingest/jobs", methods=["POST"])
