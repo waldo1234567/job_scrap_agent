@@ -11,12 +11,11 @@ def get_db():
         try:
             db = JobDatabase()
         except Exception as e:
-            # safe: don't crash import; print short warning for logs
             print("WARNING: could not create DB in render_jobs:", e)
             db = None
     return db
 
-def _fetch_jobs( min_score: int, max_score: int, limit: int):
+def _fetch_jobs( min_score: int, max_score: int, limit: int, sort_by: str = "score_desc"):
     client = get_db()
     if not client:
         return []
@@ -29,11 +28,21 @@ def _fetch_jobs( min_score: int, max_score: int, limit: int):
         WHERE ai_score BETWEEN %s AND %s
     """
     params = [min_score, max_score]
+    if sort_by == "score_desc":
+        order_clause = "ORDER BY ai_score DESC, created_at DESC"
+    elif sort_by == "score_asc":
+        order_clause = "ORDER BY ai_score ASC, created_at DESC" 
+    elif sort_by == "newest":
+        order_clause = "ORDER BY created_at DESC, ai_score DESC"
+    elif sort_by == "oldest":
+        order_clause = "ORDER BY created_at ASC, ai_score DESC"
+    else:
+        order_clause = "ORDER BY ai_score DESC, created_at DESC"
     
-    query += " ORDER BY ai_score DESC, created_at DESC LIMIT %s"
+    query += f" {order_clause} LIMIT %s"
     params.append(int(limit))
+    
     cur.execute(query, params)
-  
     columns = [desc[0] for desc in cur.description] # type: ignore
     rows = [dict(zip(columns, row)) for row in cur.fetchall()]
     
@@ -60,8 +69,8 @@ def get_job_by_id( job_id: int):
     client.return_connection(conn)
     return job_dict
 
-def render_job_cards_clickable( min_score: int, max_score: int, limit: int = 8) -> str:
-    rows = _fetch_jobs(min_score, max_score, limit)
+def render_job_cards_clickable( min_score: int, max_score: int, sort_by: str,limit: int = 8) -> str:
+    rows = _fetch_jobs(min_score, max_score, limit, sort_by)
     if not rows:
         return "<div>No jobs found for this range.</div>"
     

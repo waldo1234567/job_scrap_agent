@@ -212,40 +212,29 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
                 show_btn = gr.Button("Show Job")
                 detail_out = gr.Textbox(label="Job Detail", lines= 10)
                 
-    def refresh_top_table(min_score, limit, sort_by):
-        return top_jobs_table(min_score, limit, sort_by)
-
-    async def render_cards_threaded(min_score: int, limit: int):
-        return await run_in_threadpool(lambda: render_job_cards_clickable(int(min_score), 100, int(limit)))
-
-    async def fetch_stats_threaded():
-        return await run_in_threadpool(fetch_stats)
-
-    async def get_logs_threaded():
-        return await run_in_threadpool(get_logs)
-
-    async def run_refresh():
-        stats = await fetch_stats_threaded()
-        logs = await get_logs_threaded()
-        cards = await run_in_threadpool(lambda: render_job_cards_clickable(int(top_min.value), 100, int(top_limit.value)))
+    
+    def refresh_cards(min_score: int, max_score: int, limit: int = 8, sort_by: str = "score_desc") -> str:
+        return render_job_cards_clickable( min_score, max_score, sort_by,  limit)
+    def refresh_all():
+        stats = fetch_stats()
+        logs = get_logs()
+        cards = render_job_cards_clickable(
+            int(top_min.value), 100,  "score_desc",int(top_limit.value)
+        )
         return stats, logs, cards
     
-    demo.load(fn=run_refresh, inputs=None, outputs=[stats_md, logs_area, top_cards])
-    refresh_btn.click(fn=run_refresh, inputs=None, outputs=[stats_md, logs_area, top_cards])
+    demo.load(fn=refresh_all, inputs=None, outputs=[stats_md, logs_area, top_cards])
+    refresh_btn.click(fn=refresh_all, inputs=None, outputs=[stats_md, logs_area, top_cards])
     export_btn.click(fn=export_csv, inputs=None, outputs=None)
     
     
-    top_min.change(fn=lambda s, l, so: run_in_threadpool(lambda: render_job_cards_clickable(int(s),100,int(l))),
-               inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
-    top_limit.change(fn=lambda s, l, so: run_in_threadpool(lambda: render_job_cards_clickable(int(s),100,int(l))),
-               inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
-    sort_dropdown.change(fn=lambda s, l, so: run_in_threadpool(lambda: render_job_cards_clickable(int(top_min.value),100,int(top_limit.value))),
-               inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
+    top_min.change(fn=refresh_cards, inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
+    top_limit.change(fn=refresh_cards, inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
+    sort_dropdown.change(fn=refresh_cards, inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
     
     show_btn.click(fn=show_job_detail, inputs=detail_id, outputs=detail_out)
 
-def refresh_cards(min_score, limit, sort_by):
-    return render_job_cards_clickable( int(min_score), 100, int(limit))
+
 
 demo.queue(default_concurrency_limit=2, max_size=50)
 app = demo.app
