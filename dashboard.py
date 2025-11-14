@@ -8,6 +8,8 @@ from datetime import datetime
 from gr_helper.render_jobs import render_job_cards_clickable
 import os
 from flask import request, jsonify
+from starlette.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 _logs: List[str] = []
 _lock = threading.Lock()
@@ -213,30 +215,25 @@ def refresh_cards(min_score, limit, sort_by):
 app = demo.app
 
 @app.route("/health")
-def health():
-    ok = True
-    details={}
-    env =[]
-    env.append(username)
-    try:
-        db = JobDatabase()
-        stats = db.get_stats()
-        details['database'] = {
-            'total_jobs': stats.get('total', 0),
-            'new_jobs': stats.get('new', 0),
-            'interested': stats.get('interested', 0),
-            'applied': stats.get('applied', 0)
+async def health(request):
+    details = {
+        "env": {
+            "DB_HOST": os.getenv("HOST"),
+            "DB_PORT": os.getenv("DB_PORT"),
+            "DBNAME": os.getenv("DBNAME"),
         }
-        db.close()
-        print(env)
-        print("Database health check passed")
+    }
+    db = JobDatabase()
+    try:
+        db_ok, db_details = await run_in_threadpool(db.get_stats)
+        details["database"] = db_details
+        status = 200 if db_ok else 500
+        return JSONResponse({"ok": db_ok, "details": details}, status_code=status)
     
     except Exception as e:
-        ok = False
-        details['db_error'] = str(e)
-        print(f"Database health check failed: {e}")
+        details["error"] = str(e) # type: ignore
+        return JSONResponse({"ok": False, "details": details}, status_code=500)
         
-    return jsonify({"ok": ok, "details": details}),200
 
 
 @app.route("/ingest/jobs", methods=["POST"])
