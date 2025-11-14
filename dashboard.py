@@ -9,7 +9,8 @@ from datetime import datetime
 from gr_helper.render_jobs import render_job_cards_clickable
 import os
 from flask import request, jsonify
-from starlette.responses import JSONResponse
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 _logs: List[str] = []
@@ -216,15 +217,15 @@ def refresh_cards(min_score, limit, sort_by):
 app = demo.app
 db_client = None
 
-@app.get("/health")
-async def health(request):
+@app.api_route("/health", methods=["GET", "HEAD"])
+async def health(request: Request):
     details = {"env": {"DB_HOST": os.getenv("HOST"), "DB_PORT": os.getenv("DB_PORT"), "DBNAME": os.getenv("DBNAME")}}
+
     global db_client
     if db_client is None:
         try:
             db_client = JobDatabase()
         except Exception as e:
-            
             details["database"] = {"ok": False, "error": "db_init_failed", "msg": str(e)} # type: ignore
             return JSONResponse({"ok": False, "details": details}, status_code=500)
 
