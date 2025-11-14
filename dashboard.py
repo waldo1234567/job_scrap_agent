@@ -241,7 +241,7 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
                 
     
     def refresh_cards(min_score: int, max_score: int, limit: int = 8, sort_by: str = "score_desc") -> str:
-        return safe_render_cards( min_score, sort_by,  limit)
+        return safe_render_cards( min_score,  limit,sort_by)
     def refresh_all():
         stats = safe_fetch_stats()
         logs = safe_get_logs()
