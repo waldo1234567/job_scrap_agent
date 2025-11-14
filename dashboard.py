@@ -28,8 +28,17 @@ host = os.environ.get("HOST")
 port = os.environ.get("DB_PORT")
 dbname = os.environ.get("DBNAME")
 
-db = JobDatabase()
-print("Connected to database")
+db_client = None
+
+def get_db_client():
+    global db_client
+    if db_client is None:
+        try:
+            db_client = JobDatabase()
+        except Exception as e:
+            print("WARNING: JobDatabase init failed in dashboard.get_db_client():", e)
+            db_client = None
+    return db_client
 
 def _append_log(msg: str):
     with _lock:
@@ -42,7 +51,8 @@ def get_logs() -> str:
     
         
 def fetch_stats() -> str:
-    all_jobs =db.get_all_jobs(status='new', limit=1000)
+    client = get_db_client()
+    all_jobs =client.get_all_jobs(status='new', limit=1000) # type: ignore
     scored = [j for j in all_jobs if (j.get('ai_score') or 0) > 0]
     total = len(all_jobs)
     scored_count = len(scored)
@@ -79,7 +89,8 @@ def parse_date_posted(s: str):
                 
                 
 def top_jobs_table(min_score: int = 70, limit: int = 10, sort_by: str = "score_desc", source_filter: str = "All"):
-    conn = db.get_connection()
+    client = get_db_client()
+    conn = client.get_connection() # type: ignore
     query = """
             SELECT id, title, company, location, ai_score, ai_analysis, url, date_posted, source 
             FROM jobs 
@@ -92,7 +103,7 @@ def top_jobs_table(min_score: int = 70, limit: int = 10, sort_by: str = "score_d
         params.append(source_filter) # type: ignore
         
     df = pd.read_sql_query(query, conn, params=params) # type: ignore
-    db.return_connection(conn)
+    client.return_connection(conn) # pyright: ignore[reportOptionalMemberAccess]
     
     if df.empty:
         return pd.DataFrame([{"message":"No jobs match the criteria"}])
@@ -123,7 +134,8 @@ def top_jobs_table(min_score: int = 70, limit: int = 10, sort_by: str = "score_d
     return out
 
 def export_csv():
-    conn = db.get_connection()
+    client = get_db_client()
+    conn = client.get_connection() # type: ignore
     df = pd.read_sql_query("SELECT * FROM jobs", conn) # type: ignore
     conn.close()
     buffer = io.StringIO()
@@ -134,13 +146,14 @@ def export_csv():
     
     
 def show_job_detail(job_id:int):
-    conn = db.get_connection()
+    client = get_db_client()
+    conn = client.get_connection() # type: ignore
     cursor = conn.cursor()
     
     cursor.execute("SELECT * FROM jobs WHERE id = %s", (job_id,))
     row = cursor.fetchone()
         
-    db.return_connection(conn)
+    client.return_connection(conn) # type: ignore
     if not row:
         return f"Job {job_id} not found"
 
@@ -215,7 +228,6 @@ def refresh_cards(min_score, limit, sort_by):
     return render_job_cards_clickable( int(min_score), 100, int(limit))
 
 app = demo.app
-db_client = None
 
 @app.api_route("/health", methods=["GET", "HEAD"])
 async def health(request: Request):
@@ -224,13 +236,13 @@ async def health(request: Request):
     global db_client
     if db_client is None:
         try:
-            db_client = JobDatabase()
+            db_client =get_db_client()
         except Exception as e:
             details["database"] = {"ok": False, "error": "db_init_failed", "msg": str(e)} # type: ignore
             return JSONResponse({"ok": False, "details": details}, status_code=500)
 
     try:
-        ok, db_details = await run_in_threadpool(db_client.check)
+        ok, db_details = await run_in_threadpool(db_client.check) # type: ignore
         details["database"] = db_details
         status = 200 if ok else 500
         return JSONResponse({"ok": ok, "details": details}, status_code=status)
