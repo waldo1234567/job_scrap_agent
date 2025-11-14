@@ -6,22 +6,19 @@ from typing import List
 from jobdb import JobDatabase
 from datetime import datetime
 from gr_helper.render_jobs import render_job_cards_clickable
-from health import start_health_background
 import os
+from flask import request, jsonify
 
 _logs: List[str] = []
-_running_thread = None
 _lock = threading.Lock()
+API_KEY = os.getenv("INGEST_API_KEY", "")
 
-PORT = int(os.getenv("PORT", 7860))
+DATA_DIR = os.getenv("DATA_DIR", "/tmp/data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
 GRADIO_USER = os.getenv("GRADIO_AUTH_USER", "admin")
 GRADIO_PASS = os.getenv("GRADIO_AUTH_PASS", "changeme")
 GRADIO_SERVER_PORT = os.environ.get("GRADIO_SERVER_PORT")
-username = os.environ.get("user")
-password = os.environ.get("password")
-host = os.environ.get("host")
-port = os.environ.get("port")
-dbname = os.environ.get("dbname")
 
 db = JobDatabase()
 print("Connected to database")
@@ -209,7 +206,59 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
 def refresh_cards(min_score, limit, sort_by):
     return render_job_cards_clickable( int(min_score), 100, int(limit))
 
+app = demo.app
+
+@app.route("/health")
+def health():
+    ok = True
+    details={}
+    
+    try:
+        conn = sqlite3.connect('/jobs.db',timeout=2)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*)")
+        details['jobs'] = cur.fetchone()[0]
+        conn.close()
+    
+    except Exception as e:
+        ok =False
+        details['db_error'] = str(e)
+    
+    chrome = os.getenv("CHROME_REMOTE_URL")
+    
+    try:
+        r = requests.get(chrome.rstrip('/') + "/status", timeout=3) # type: ignore
+        details['chrome_status'] = r.status_code
+        if r.status_code != 200:
+            ok = False
+    except Exception as e:
+        ok = False
+        details['chrome_error'] = str(e)
+    return jsonify({"ok": ok, "details": details})
+
+
+@app.route("/ingest/jobs", methods=["POST"])
+def ingest_jobs():
+    key= request.headers.get("X-API-KEY", "")
+    if API_KEY and key != API_KEY:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    payload = request.get_json(force=True)
+    if not payload:
+        return jsonify({"ok": False, "error": "no json"}), 400
+
+    
+    jobs = payload.get("jobs") or []
+    if not isinstance(jobs, list):
+        return jsonify({"ok": False, "error": "jobs must be list"}), 400
+    
+    from datetime import datetime
+    ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    out_path = os.path.join(DATA_DIR, f"ingest_{ts}.json")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(jobs, f, ensure_ascii=False, indent=2)
+    
+    return jsonify({"ok": True, "received": len(jobs)}), 200
 
 if __name__ == "__main__":
-    start_health_background()
-    demo.launch(server_name="0.0.0.0", server_port=7860, auth=(GRADIO_USER, GRADIO_PASS))
+    port = int(os.environ.get("GRADIO_SERVER_PORT", 7860))
+    demo.launch(server_name="0.0.0.0", server_port=port, auth=(GRADIO_USER, GRADIO_PASS))
