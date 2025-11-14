@@ -62,10 +62,14 @@ def safe_get_logs():
 
 def safe_render_cards(min_score, limit, sort_by):
     try:
-        return render_job_cards_clickable(int(min_score), 100, sort_by, int(limit))
+        min_score_int = int(min_score) if min_score is not None else 70
+        limit_int = int(limit) if limit is not None else 10
+        
+        return render_job_cards_clickable(min_score_int, 100, sort_by, limit_int)
     except Exception as e:
-        _append_log(f"Error rendering cards: {str(e)}")
-        return f"<div style='color: red; padding: 20px;'>Error loading jobs: {str(e)}</div>"
+        error_msg = f"Error rendering cards: {str(e)}"
+        _append_log(error_msg)
+        return f"<div style='color: red; padding: 20px;'>{error_msg}</div>"
 
 def _append_log(msg: str):
     with _lock:
@@ -240,13 +244,13 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
                 detail_out = gr.Textbox(label="Job Detail", lines= 10)
                 
     
-    def refresh_cards(min_score: int, max_score: int, limit: int = 8, sort_by: str = "score_desc") -> str:
+    def refresh_cards(min_score, limit, sort_by) -> str:
         return safe_render_cards( min_score,  limit,sort_by)
     def refresh_all():
         stats = safe_fetch_stats()
         logs = safe_get_logs()
         cards = safe_render_cards(
-            int(top_min.value), int(top_limit.value),sort_dropdown.value 
+            top_min.value, top_limit.value,sort_dropdown.value 
         )
         return stats, logs, cards
     
