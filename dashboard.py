@@ -229,22 +229,6 @@ def health():
         ok = False
         details['db_error'] = str(e)
         print(f"Database health check failed: {e}")
-    
-    chrome = os.getenv("CHROME_REMOTE_URL")
-    if chrome:
-        try:
-            r = requests.get(chrome.rstrip('/') + "/status", timeout=3)
-            details['chrome_status'] = r.status_code
-            if r.status_code != 200:
-                ok = False
-            print("✅ Chrome health check passed")
-        except Exception as e:
-            ok = False
-            details['chrome_error'] = str(e)
-            print(f"Chrome health check failed: {e}")
-    else:
-        details['chrome'] = "Not configured"
-        print("Chrome not configured, skipping check")
         
     return jsonify({"ok": ok, "details": details}),200
 
