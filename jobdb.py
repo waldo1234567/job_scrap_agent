@@ -26,6 +26,7 @@ class JobDatabase:
             password=password,
             host=host,
             port=port,
+            connect_timeout= 3,
             sslmode="require"
         )
         
