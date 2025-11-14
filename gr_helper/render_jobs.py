@@ -3,10 +3,25 @@ import json
 from typing import List
 from jobdb import JobDatabase
 
-db = JobDatabase()
+db = None
+
+def get_db(): 
+    global db
+    if db is None:
+        try:
+            db = JobDatabase()
+        except Exception as e:
+            # safe: don't crash import; print short warning for logs
+            print("WARNING: could not create DB in render_jobs:", e)
+            db = None
+    return db
 
 def _fetch_jobs( min_score: int, max_score: int, limit: int):
-    conn = db.get_connection()
+    client = get_db()
+    if not client:
+        return []
+    
+    conn = client.get_connection()
     cur = conn.cursor()
     query = """
         SELECT id, title, company, location, ai_score, ai_analysis, url, date_posted, source
@@ -22,24 +37,27 @@ def _fetch_jobs( min_score: int, max_score: int, limit: int):
     columns = [desc[0] for desc in cur.description] # type: ignore
     rows = [dict(zip(columns, row)) for row in cur.fetchall()]
     
-    db.return_connection(conn)
+    client.return_connection(conn)
     return rows
 
 def get_job_by_id( job_id: int):
-    conn = db.get_connection()
+    client = get_db()
+    if not client:
+        return {}
+    conn = client.get_connection()
     cur = conn.cursor()
     
     cur.execute("SELECT * FROM jobs WHERE id = %s", (int(job_id),))
     row = cur.fetchone()
     
     if not row:
-        db.return_connection(conn)
+        client.return_connection(conn)
         return {}
  
     columns = [desc[0] for desc in cur.description] # type: ignore
     job_dict = dict(zip(columns, row))
     
-    db.return_connection(conn)
+    client.return_connection(conn)
     return job_dict
 
 def render_job_cards_clickable( min_score: int, max_score: int, limit: int = 8) -> str:
