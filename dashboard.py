@@ -246,7 +246,7 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
         stats = safe_fetch_stats()
         logs = safe_get_logs()
         cards = safe_render_cards(
-            int(top_min.value), sort_dropdown.value ,int(top_limit.value)
+            int(top_min.value), int(top_limit.value),sort_dropdown.value 
         )
         return stats, logs, cards
     
@@ -291,5 +291,23 @@ def ingest_jobs():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
-    print(f"Starting Gradio on port {port}")
-    demo.launch(server_name="0.0.0.0", server_port=port, auth=(GRADIO_USER, GRADIO_PASS), show_error=True)
+    print(f"Starting application on port {port}")
+    print(f"Environment: HOST={os.getenv('HOST')}, DBNAME={os.getenv('DBNAME')}")
+
+    try:
+        client = get_db_client()
+        if client:
+            print("✅ Database client created successfully")
+        else:
+            print("Database client is None")
+    except Exception as e:
+        print(f"Database initialization warning: {e}")
+    
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=port,
+        auth=(GRADIO_USER, GRADIO_PASS) if GRADIO_USER and GRADIO_PASS else None,
+        share=False,
+        show_error=True,
+        debug=False 
+    )
