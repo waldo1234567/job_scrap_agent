@@ -213,6 +213,7 @@ def refresh_cards(min_score, limit, sort_by):
     return render_job_cards_clickable( int(min_score), 100, int(limit))
 
 app = demo.app
+db = JobDatabase()
 
 @app.route("/health")
 async def health(request):
@@ -223,7 +224,7 @@ async def health(request):
             "DBNAME": os.getenv("DBNAME"),
         }
     }
-    db = JobDatabase()
+   
     try:
         db_ok, db_details = await run_in_threadpool(db.get_stats)
         details["database"] = db_details
