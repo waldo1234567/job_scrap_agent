@@ -206,7 +206,7 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
                 ("Newest", "newest"),
                 ("Oldest", "oldest")
             ], value="score_desc", label="Sort by")
-            top_cards = gr.HTML(render_job_cards_clickable(70, 100, int(top_limit.value))) # type: ignore
+            top_cards = gr.HTML("")
             with gr.Row():
                 detail_id = gr.Number(value=0, precision=0, label="Job ID (show details)")
                 show_btn = gr.Button("Show Job")
@@ -214,13 +214,32 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
                 
     def refresh_top_table(min_score, limit, sort_by):
         return top_jobs_table(min_score, limit, sort_by)
-                
-    refresh_btn.click(fn=lambda: (fetch_stats(), get_logs(), render_job_cards_clickable( int(top_min.value), 100, int(top_limit.value))), inputs=None, outputs=[stats_md, logs_area, top_cards])
+
+    async def render_cards_threaded(min_score: int, limit: int):
+        return await run_in_threadpool(lambda: render_job_cards_clickable(int(min_score), 100, int(limit)))
+
+    async def fetch_stats_threaded():
+        return await run_in_threadpool(fetch_stats)
+
+    async def get_logs_threaded():
+        return await run_in_threadpool(get_logs)
+
+    async def run_refresh():
+        stats = await fetch_stats_threaded()
+        logs = await get_logs_threaded()
+        cards = await render_cards_threaded(int(top_min.value), int(top_limit.value))
+        return stats, logs, cards
+   
+    refresh_btn.click(fn=run_refresh, inputs=None, outputs=[stats_md, logs_area, top_cards])
     export_btn.click(fn=export_csv, inputs=None, outputs=None)
     
-    top_min.change(fn=lambda s, l, so: render_job_cards_clickable(int(s), 100, int(l)), inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
-    top_limit.change(fn=lambda s, l, so: render_job_cards_clickable( int(s), 100, int(l)), inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
-    sort_dropdown.change(fn=lambda s, l, so: render_job_cards_clickable( int(top_min.value), 100, int(top_limit.value)), inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
+    
+    top_min.change(fn=lambda s, l, so: run_in_threadpool(lambda: render_job_cards_clickable(int(s),100,int(l))),
+               inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
+    top_limit.change(fn=lambda s, l, so: run_in_threadpool(lambda: render_job_cards_clickable(int(s),100,int(l))),
+               inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
+    sort_dropdown.change(fn=lambda s, l, so: run_in_threadpool(lambda: render_job_cards_clickable(int(top_min.value),100,int(top_limit.value))),
+               inputs=[top_min, top_limit, sort_dropdown], outputs=top_cards)
     
     show_btn.click(fn=show_job_detail, inputs=detail_id, outputs=detail_out)
 
