@@ -1,3 +1,4 @@
+import traceback
 import gradio as gr
 import threading, time, json, io
 import pandas as pd
@@ -213,18 +214,27 @@ def refresh_cards(min_score, limit, sort_by):
     return render_job_cards_clickable( int(min_score), 100, int(limit))
 
 app = demo.app
-db_client = JobDatabase()
+db_client = None
 
 @app.get("/health")
 async def health(request):
     details = {"env": {"DB_HOST": os.getenv("HOST"), "DB_PORT": os.getenv("DB_PORT"), "DBNAME": os.getenv("DBNAME")}}
+    global db_client
+    if db_client is None:
+        try:
+            db_client = JobDatabase()
+        except Exception as e:
+            
+            details["database"] = {"ok": False, "error": "db_init_failed", "msg": str(e)} # type: ignore
+            return JSONResponse({"ok": False, "details": details}, status_code=500)
+
     try:
         ok, db_details = await run_in_threadpool(db_client.check)
         details["database"] = db_details
         status = 200 if ok else 500
         return JSONResponse({"ok": ok, "details": details}, status_code=status)
     except Exception as e:
-        details["error"] = str(e) # type: ignore
+        details["database"] = {"ok": False, "error": "check_failed", "msg": str(e), "trace": traceback.format_exc()} # type: ignore
         return JSONResponse({"ok": False, "details": details}, status_code=500)
         
 
