@@ -227,9 +227,10 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
     async def run_refresh():
         stats = await fetch_stats_threaded()
         logs = await get_logs_threaded()
-        cards = await render_cards_threaded(int(top_min.value), int(top_limit.value))
+        cards = await run_in_threadpool(lambda: render_job_cards_clickable(int(top_min.value), 100, int(top_limit.value)))
         return stats, logs, cards
-   
+    
+    demo.load(fn=run_refresh, inputs=None, outputs=[stats_md, logs_area, top_cards])
     refresh_btn.click(fn=run_refresh, inputs=None, outputs=[stats_md, logs_area, top_cards])
     export_btn.click(fn=export_csv, inputs=None, outputs=None)
     
@@ -246,6 +247,7 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
 def refresh_cards(min_score, limit, sort_by):
     return render_job_cards_clickable( int(min_score), 100, int(limit))
 
+demo.queue(default_concurrency_limit=2, max_size=50)
 app = demo.app
 
 @app.api_route("/health", methods=["GET", "HEAD"])
