@@ -8,7 +8,6 @@ from datetime import datetime
 from gr_helper.render_jobs import render_job_cards_clickable
 import os
 from flask import request, jsonify
-import requests
 
 _logs: List[str] = []
 _lock = threading.Lock()
@@ -19,6 +18,11 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 GRADIO_USER = os.getenv("GRADIO_AUTH_USER", "admin")
 GRADIO_PASS = os.getenv("GRADIO_AUTH_PASS", "changeme")
+username = os.environ.get("DB_USERNAME")
+password = os.environ.get("PASSWORD")
+host = os.environ.get("HOST")
+port = os.environ.get("DB_PORT")
+dbname = os.environ.get("DBNAME")
 
 db = JobDatabase()
 print("Connected to database")
@@ -212,7 +216,8 @@ app = demo.app
 def health():
     ok = True
     details={}
-    
+    env =[]
+    env.append(username)
     try:
         db = JobDatabase()
         stats = db.get_stats()
@@ -223,6 +228,7 @@ def health():
             'applied': stats.get('applied', 0)
         }
         db.close()
+        print(env)
         print("Database health check passed")
     
     except Exception as e:
@@ -257,4 +263,5 @@ def ingest_jobs():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
+    print(f"Starting Gradio on port {port}")
     demo.launch(server_name="0.0.0.0", server_port=port, auth=(GRADIO_USER, GRADIO_PASS), show_error=True)
