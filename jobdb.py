@@ -11,7 +11,7 @@ load_dotenv()
 username = os.environ.get("DB_USERNAME")
 password = os.environ.get("PASSWORD")
 host = os.environ.get("HOST")
-port = os.environ.get("PORT")
+port = os.environ.get("DB_PORT")
 dbname = os.environ.get("DBNAME")
 
 class JobDatabase:

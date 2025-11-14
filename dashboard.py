@@ -18,7 +18,6 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 GRADIO_USER = os.getenv("GRADIO_AUTH_USER", "admin")
 GRADIO_PASS = os.getenv("GRADIO_AUTH_PASS", "changeme")
-GRADIO_SERVER_PORT = os.environ.get("GRADIO_SERVER_PORT")
 
 db = JobDatabase()
 print("Connected to database")
@@ -260,5 +259,5 @@ def ingest_jobs():
     return jsonify({"ok": True, "received": len(jobs)}), 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get("GRADIO_SERVER_PORT", 7860))
+    port = int(os.environ.get("PORT", 7860))
     demo.launch(server_name="0.0.0.0", server_port=port, auth=(GRADIO_USER, GRADIO_PASS))
