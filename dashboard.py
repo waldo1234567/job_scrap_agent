@@ -35,10 +35,37 @@ def get_db_client():
     if db_client is None:
         try:
             db_client = JobDatabase()
+            conn = db_client.get_connection()
+            if conn:
+                db_client.return_connection(conn)
+                _append_log("Database client initialized successfully")
+            else:
+                raise Exception("Could not get database connection")
         except Exception as e:
-            print("WARNING: JobDatabase init failed in dashboard.get_db_client():", e)
+            print(f"CRITICAL: JobDatabase init failed: {e}")
+            _append_log(f"CRITICAL: Database init failed: {str(e)}")
             db_client = None
     return db_client
+
+def safe_fetch_stats():
+    try:
+        return fetch_stats()
+    except Exception as e:
+        _append_log(f"Error in fetch_stats: {str(e)}")
+        return "### Database Stats\n\n- **Error loading stats**"
+
+def safe_get_logs():
+    try:
+        return get_logs()
+    except Exception as e:
+        return f"Error loading logs: {str(e)}"
+
+def safe_render_cards(min_score, limit, sort_by):
+    try:
+        return render_job_cards_clickable(int(min_score), 100, sort_by, int(limit))
+    except Exception as e:
+        _append_log(f"Error rendering cards: {str(e)}")
+        return f"<div style='color: red; padding: 20px;'>Error loading jobs: {str(e)}</div>"
 
 def _append_log(msg: str):
     with _lock:
@@ -195,7 +222,7 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
                 run_btn = gr.Button("Run Now (background)")
                 refresh_btn = gr.Button("Refresh stats")
                 export_btn = gr.Button("Export CSV") 
-            logs_area = gr.Textbox(label="Logs (latest)", value=get_logs(), lines=12)
+            logs_area = gr.Textbox(label="Logs (latest)", value=safe_get_logs(), lines=12)
         with gr.Column(scale=3):
             gr.Markdown("### Top Matches")
             top_min = gr.Slider(minimum=0, maximum=100, value=70, step=5, label="Min score")
@@ -214,12 +241,12 @@ with gr.Blocks(title="Job Info Dashboard") as demo:
                 
     
     def refresh_cards(min_score: int, max_score: int, limit: int = 8, sort_by: str = "score_desc") -> str:
-        return render_job_cards_clickable( min_score, max_score, sort_by,  limit)
+        return safe_render_cards( min_score, sort_by,  limit)
     def refresh_all():
-        stats = fetch_stats()
-        logs = get_logs()
-        cards = render_job_cards_clickable(
-            int(top_min.value), 100,  "score_desc",int(top_limit.value)
+        stats = safe_fetch_stats()
+        logs = safe_get_logs()
+        cards = safe_render_cards(
+            int(top_min.value), sort_dropdown.value ,int(top_limit.value)
         )
         return stats, logs, cards
     
