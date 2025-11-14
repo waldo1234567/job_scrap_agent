@@ -27,7 +27,7 @@ jobs:
           DB_USERNAME: ${{ secrets.DB_USERNAME }}   
           PASSWORD: ${{ secrets.PASSWORD }}
           HOST: ${{ secrets.HOST }}
-          PORT: ${{ secrets.PORT }}
+          PORT: ${{ secrets.DB_PORT }}
           DBNAME: ${{ secrets.DBNAME }}
         run: |
           python cleanup_job.py

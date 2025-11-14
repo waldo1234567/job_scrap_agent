@@ -66,10 +66,10 @@ jobs:
           
       - name: Run scraper
         env:
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}    # Match your code
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}  
           PASSWORD: ${{ secrets.PASSWORD }}
           HOST: ${{ secrets.HOST }}
-          PORT: ${{ secrets.PORT }}
+          PORT: ${{ secrets.DB_PORT }}
           DBNAME: ${{ secrets.DBNAME }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
@@ -81,7 +81,7 @@ jobs:
           DB_USERNAME: ${{ secrets.DB_USERNAME }}  
           PASSWORD: ${{ secrets.PASSWORD }}
           HOST: ${{ secrets.HOST }}
-          PORT: ${{ secrets.PORT }}
+          PORT: ${{ secrets.DB_PORT }}
           DBNAME: ${{ secrets.DBNAME }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
