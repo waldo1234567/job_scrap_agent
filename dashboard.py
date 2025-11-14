@@ -259,5 +259,5 @@ def ingest_jobs():
     return jsonify({"ok": True, "received": len(jobs)}), 200
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
-    demo.launch(server_name="0.0.0.0", server_port=port, auth=(GRADIO_USER, GRADIO_PASS))
+    port = int(os.environ.get("PORT", 5001))
+    demo.launch(server_name="0.0.0.0", server_port=port, auth=(GRADIO_USER, GRADIO_PASS), show_error=True)
